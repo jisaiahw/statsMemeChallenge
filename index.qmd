@@ -149,18 +149,4 @@ plot(masked_cimg, axes = FALSE, main = "Estimate", cex.main = 1.5)
 
 ## Understanding Selection Bias Through This Meme
 
-This visualization demonstrates **selection bias**—a fundamental problem in statistics where the data we observe is not representative of the population we want to study.
-
-**The Four Panels Explained:**
-
-1. **Reality**: The original image represents the true population—the complete, unbiased truth we want to understand.
-
-2. **Your Model**: The stippled version represents your statistical model—a simplified representation of reality using data points (the black dots). This is your best attempt to capture the truth.
-
-3. **Selection Bias**: The bold letter "S" represents a systematic pattern of missing data. In real-world scenarios, selection bias occurs when certain groups or regions are systematically excluded from your sample (e.g., only surveying people who respond to emails, only studying accessible locations, etc.).
-
-4. **Estimate**: The masked stippled image shows what happens when selection bias is applied to your model. Notice how the "S" shape creates a gap in your data—the stipples (data points) are missing in that region. This biased estimate no longer accurately represents reality because important information has been systematically excluded.
-
-**Key Takeaway:** Selection bias occurs when your sample doesn't match your population of interest. The "S" in this meme serves as a visual reminder: whenever you analyze data, ask yourself: **"Does my sample match my population of interest?"** If the answer is no, your estimates will be biased, just like the masked estimate panel shows.
-
-This visualization transforms an abstract statistical concept into a concrete, memorable image. The next time you encounter selection bias in real data analysis, you'll remember this meme and be better equipped to recognize and address the problem.
+This visualization demonstrates **selection bias**, which occurs when your sample doesn't match your population of interest. It causes your estimates to be systematically different to the true population, just like the masked Estimate panel shows. The "S" in this meme serves as a visual representation of this systematic error, distorting the results in a funny way. 
