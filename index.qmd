@@ -16,7 +16,6 @@ knitr::opts_chunk$set(
 )
 ```
 
-# Selection Bias & Missing Data Challenge - Part 2
 
 ```{r}
 #| label: load-images-r
