@@ -8,6 +8,14 @@ execute:
   eval: true
 ---
 
+```{r setup, include=FALSE}
+# Setup chunk: Suppress warnings and messages for cleaner output
+knitr::opts_chunk$set(
+  warning = FALSE,
+  message = FALSE
+)
+```
+
 # 🎨 Selection Bias & Missing Data Challenge - Part 2
 
 ::: {.callout-important}
@@ -92,52 +100,63 @@ This exercise is fundamentally about **walking AI through a process** to create 
 
 ::: {.panel-tabset}
 
-### Python
-
-```{python}
-#| label: load-images
-#| echo: true
-#| eval: false
-
-import numpy as np
-from PIL import Image
-import matplotlib.pyplot as plt
-
-# Load original image
-original_img = Image.open('your_image.jpg')
-if original_img.mode != 'L':
-    original_img = original_img.convert('L')
-original_array = np.array(original_img, dtype=np.float32) / 255.0
-
-# Load stippled image (from Part 1 - see https://flyaflya.github.io/stippleChallenge/)
-stipple_array = np.load('stippleImage.npy')
-
-print(f"Original: {original_array.shape}, Stipple: {stipple_array.shape}")
-```
-
 ### R
 
 ```{r}
 #| label: load-images-r
 #| echo: true
-#| eval: false
+#| eval: true
 
 library(imager)
 
 # Load original image
-original_img <- load.image('your_image.jpg')
+original_img <- load.image('thumbsup.png')
 if(dim(original_img)[3] == 3) {
   original_img <- grayscale(original_img)
 }
 # Convert to matrix [h, w] and normalize
+# imager stores as [x, y] so we transpose to get [h, w]
 arr <- as.array(original_img)
 original_array <- t(arr[,,1,1]) / max(arr)
 
+# Get dimensions
+h <- nrow(original_array)
+w <- ncol(original_array)
+
 # Load stippled image (from Part 1 - see https://flyaflya.github.io/stippleChallenge/)
-# Adjust based on how you saved it - could be .RData, .rds, or regenerate
-# stipple_array <- readRDS('stippleImage.rds')
+# Try to load from saved file first
+if(file.exists('stippleImage.rds')) {
+  stipple_array <- readRDS('stippleImage.rds')
+  cat("Loaded stippled image from stippleImage.rds\n")
+} else if(file.exists('../stippleChallenge/stippleImage.rds')) {
+  stipple_array <- readRDS('../stippleChallenge/stippleImage.rds')
+  cat("Loaded stippled image from stippleChallenge directory\n")
+} else {
+  # If no saved file, you need to regenerate it using the stippling algorithm from Part 1
+  # For now, create a simple test pattern so you can see the structure
+  # REPLACE THIS with your actual stippled image generation code from Part 1
+  cat("WARNING: No stippled image found. Using placeholder.\n")
+  cat("You need to either:\n")
+  cat("  1. Save your stippled image as 'stippleImage.rds' using: saveRDS(stipple_pattern, 'stippleImage.rds')\n")
+  cat("  2. Or regenerate it here using the stippling algorithm from Part 1\n")
+  stipple_array <- matrix(1.0, nrow = h, ncol = w)  # Placeholder - all white
+}
+
+# Check and fix dimensions if needed
+if(!identical(dim(stipple_array), dim(original_array))) {
+  cat("WARNING: Stipple dimensions", dim(stipple_array), "don't match original", dim(original_array), "\n")
+  cat("Resizing stipple to match original dimensions...\n")
+  # If dimensions don't match, we need to resize or regenerate
+  # For now, create a new matrix with correct dimensions
+  if(nrow(stipple_array) != h || ncol(stipple_array) != w) {
+    stipple_array <- matrix(1.0, nrow = h, ncol = w)
+    cat("Created placeholder stipple with correct dimensions. You need to regenerate with correct size.\n")
+  }
+}
 
 cat("Original dimensions:", dim(original_array), "\n")
+cat("Stipple dimensions:", dim(stipple_array), "\n")
+cat("Stipple value range:", range(stipple_array), "\n")
 ```
 
 :::
@@ -154,6 +173,57 @@ Create a matrix matching your image dimensions with a bold letter "S" rendered a
 - Convert the result to a matrix with values in [0, 1] range (0.0 = black, 1.0 = white)
 - The "S" should be clearly visible and fill most of the image space
 
+::: {.panel-tabset}
+
+### R
+
+```{r}
+#| label: create-s-letter-r
+#| echo: true
+#| eval: true
+
+library(magick)
+
+# Create a white background image matching original dimensions
+s_img <- image_blank(width = w, height = h, color = "white")
+
+# Calculate font size (80-90% of image height)
+font_size <- as.integer(h * 0.85)
+
+# Create the "S" text with bold font
+s_text <- image_annotate(
+  s_img,
+  text = "S",
+  size = font_size,
+  gravity = "center",
+  font = "Arial-Bold",
+  color = "black",
+  weight = 700
+)
+
+# Save temporarily and load with imager for reliable conversion
+temp_file <- tempfile(fileext = ".png")
+image_write(s_text, temp_file)
+
+# Load with imager
+s_cimg_temp <- load.image(temp_file)
+if(dim(s_cimg_temp)[3] == 3) {
+  s_cimg_temp <- grayscale(s_cimg_temp)
+}
+
+# Convert to matrix [h, w] format
+s_arr <- as.array(s_cimg_temp)
+s_matrix <- t(s_arr[,,1,1]) / max(s_arr)
+
+# Clean up temp file
+unlink(temp_file)
+
+cat("S matrix dimensions:", dim(s_matrix), "\n")
+cat("S matrix range:", range(s_matrix), "\n")
+```
+
+:::
+
 ### Step 3: Create the Masked Estimate
 
 Your stippled image is a matrix where black dots (0.0) represent data points and white (1.0) is background. The "S" matrix shows where selection bias occurs (black "S" = missing data). To create the masked estimate, remove stipple points (set to white) wherever the "S" is black.
@@ -165,6 +235,31 @@ Your stippled image is a matrix where black dots (0.0) represent data points and
 - Where the "S" is white, keep the original stipple values
 - This creates the visual effect of "missing data" in the shape of the "S"
 - Use conditional assignment or boolean masking (e.g., `np.where()` in Python, `ifelse()` in R)
+
+::: {.panel-tabset}
+
+### R
+
+```{r}
+#| label: create-masked-estimate-r
+#| echo: true
+#| eval: true
+
+# Create binary mask: pixels < threshold are part of the "S" (black = missing data)
+threshold <- 0.5
+s_mask <- s_matrix < threshold
+
+# Apply mask to stippled image
+# Where "S" is black (s_mask == TRUE), set pixels to white (1.0) - removing stipples
+# Where "S" is white (s_mask == FALSE), keep original stipple values
+masked_estimate <- ifelse(s_mask, 1.0, stipple_array)
+
+# Ensure dimensions match
+cat("Masked estimate dimensions:", dim(masked_estimate), "\n")
+cat("Masked estimate range:", range(masked_estimate), "\n")
+```
+
+:::
 
 ### Step 4: Assemble the Four-Panel Meme
 
@@ -180,6 +275,99 @@ Use the image composition capabilities of matplotlib (Python) or imager (R) to a
 - Save with high DPI (150-300) for quality output
 - In Python: use `plt.subplots()` and `imshow()` for each panel
 - In R: use `par(mfrow = ...)` and `plot()` with imager's `as.cimg()` to convert matrices
+
+::: {.panel-tabset}
+
+### R
+
+```{r}
+#| label: assemble-meme-r
+#| echo: true
+#| eval: true
+#| fig-width: 16
+#| fig-height: 4
+#| dpi: 300
+
+# Convert matrices to imager format
+# All matrices are in [h, w] format, need to transpose to [w, h] for imager
+# as.cimg needs: t(matrix), x = width (ncol), y = height (nrow), cc = 1 (grayscale)
+original_cimg <- as.cimg(t(original_array), x = w, y = h, cc = 1)
+stipple_cimg <- as.cimg(t(stipple_array), x = w, y = h, cc = 1)
+s_cimg <- as.cimg(t(s_matrix), x = w, y = h, cc = 1)
+masked_cimg <- as.cimg(t(masked_estimate), x = w, y = h, cc = 1)
+
+# Create 1×4 layout (horizontal)
+par(mfrow = c(1, 4), mar = c(2, 2, 3, 2), bg = "pink")
+
+# Panel 1: Reality (original image)
+plot(original_cimg, axes = FALSE, main = "Reality", cex.main = 1.5)
+
+# Panel 2: Your Model (stippled image)
+plot(stipple_cimg, axes = FALSE, main = "Your Model", cex.main = 1.5)
+
+# Panel 3: Selection Bias (S letter)
+plot(s_cimg, axes = FALSE, main = "Selection Bias", cex.main = 1.5)
+
+# Panel 4: Estimate (masked stippled image)
+plot(masked_cimg, axes = FALSE, main = "Estimate", cex.main = 1.5)
+```
+
+:::
+
+## Final Meme Generation
+
+The code below generates the final four-panel meme. In the rendered HTML, this code will be hidden (`echo: false`) so only the meme and explanation are visible.
+
+```{r}
+#| label: final-meme-generation
+#| echo: false
+#| eval: true
+#| fig-width: 16
+#| fig-height: 4
+#| dpi: 300
+#| fig-cap: "Four-panel statistics meme demonstrating selection bias: Reality (original image), Your Model (stippled version), Selection Bias (letter S), and Estimate (masked stippled image showing biased result)"
+
+# Convert matrices to imager format
+# All matrices are in [h, w] format, need to transpose to [w, h] for imager
+# as.cimg needs: t(matrix), x = width (ncol), y = height (nrow), cc = 1 (grayscale)
+original_cimg <- as.cimg(t(original_array), x = w, y = h, cc = 1)
+stipple_cimg <- as.cimg(t(stipple_array), x = w, y = h, cc = 1)
+s_cimg <- as.cimg(t(s_matrix), x = w, y = h, cc = 1)
+masked_cimg <- as.cimg(t(masked_estimate), x = w, y = h, cc = 1)
+
+# Create 1×4 layout (horizontal)
+par(mfrow = c(1, 4), mar = c(2, 2, 3, 2), bg = "pink")
+
+# Panel 1: Reality (original image)
+plot(original_cimg, axes = FALSE, main = "Reality", cex.main = 1.5)
+
+# Panel 2: Your Model (stippled image)
+plot(stipple_cimg, axes = FALSE, main = "Your Model", cex.main = 1.5)
+
+# Panel 3: Selection Bias (S letter)
+plot(s_cimg, axes = FALSE, main = "Selection Bias", cex.main = 1.5)
+
+# Panel 4: Estimate (masked stippled image)
+plot(masked_cimg, axes = FALSE, main = "Estimate", cex.main = 1.5)
+```
+
+## Understanding Selection Bias Through This Meme
+
+This visualization demonstrates **selection bias**—a fundamental problem in statistics where the data we observe is not representative of the population we want to study.
+
+**The Four Panels Explained:**
+
+1. **Reality**: The original image represents the true population—the complete, unbiased truth we want to understand.
+
+2. **Your Model**: The stippled version represents your statistical model—a simplified representation of reality using data points (the black dots). This is your best attempt to capture the truth.
+
+3. **Selection Bias**: The bold letter "S" represents a systematic pattern of missing data. In real-world scenarios, selection bias occurs when certain groups or regions are systematically excluded from your sample (e.g., only surveying people who respond to emails, only studying accessible locations, etc.).
+
+4. **Estimate**: The masked stippled image shows what happens when selection bias is applied to your model. Notice how the "S" shape creates a gap in your data—the stipples (data points) are missing in that region. This biased estimate no longer accurately represents reality because important information has been systematically excluded.
+
+**Key Takeaway:** Selection bias occurs when your sample doesn't match your population of interest. The "S" in this meme serves as a visual reminder: whenever you analyze data, ask yourself: **"Does my sample match my population of interest?"** If the answer is no, your estimates will be biased, just like the masked estimate panel shows.
+
+This visualization will stick with you because it transforms an abstract statistical concept into a concrete, memorable image. The next time you encounter selection bias in real data analysis, you'll remember this meme and be better equipped to recognize and address the problem.
 
 ## Tips for Success
 
